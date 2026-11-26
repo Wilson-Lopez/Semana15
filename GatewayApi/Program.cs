@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using GatewayApi.Inicio;
 using GatewayApi.Manejadores;
 using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
@@ -49,6 +50,10 @@ builder.Services
     .AddDelegatingHandler<ServicioNoDisponibleHandler>(global: true);
 
 var app = builder.Build();
+
+// Página de inicio (GET / y /gateway): lista las rutas del gateway. Se responde antes de Ocelot.
+app.MapWhen(PaginaDeInicio.EsInicio, rama =>
+    rama.Run(contexto => PaginaDeInicio.EscribirAsync(contexto, app.Configuration)));
 
 await app.UseOcelot();
 

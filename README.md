@@ -38,7 +38,8 @@ Cada servicio corre en su propio puerto y no comparte base de datos ni clases co
 - El prefijo `/gateway` se cambia por `/api` y el comodín `{everything}` copia el resto de la ruta (`/1`, `/1/mascotas`, `?especie=Gato`), así no se repite una ruta por cada endpoint.
 - "Token en el gateway = Sí" significa que Ocelot valida el JWT (`AuthenticationOptions` con el esquema `Bearer`) antes de reenviar. Si falta o no es válido, responde 401 y la petición no llega al servicio.
 - Los GET de `Veterinaria.Api` son públicos en el gateway, pero la API sigue exigiendo el token. El **rol** (Recepcionista o Veterinario) lo sigue exigiendo cada servicio, por eso un token válido con el rol equivocado pasa el gateway y la API responde 403.
-- En la nube el gateway carga `ocelot.Production.json`: las mismas rutas, pero con el host público de cada servicio, `https` y el puerto 443.
+- En la nube el gateway carga `ocelot.Production.json`: las mismas rutas, pero con el host público de cada servicio.
+- `GET /` y `GET /gateway` muestran una página de inicio (JSON) con las rutas del gateway, leídas del mismo `ocelot.json`. Solo muestra el lado del cliente (upstream), sin las direcciones internas de los servicios (`GatewayApi/Inicio/PaginaDeInicio.cs`).
 
 ## Microservicio 2: VacunasApi
 
