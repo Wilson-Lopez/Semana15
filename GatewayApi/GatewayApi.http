@@ -1,0 +1,190 @@
+### Pruebas por el API Gateway (el cliente solo conoce el puerto del gateway)
+### Antes: recarga la base con VeterinariaDB.sql y ejecuta los tres servicios.
+### Usuarios del script: recepcion@veterinaria.pe / Recepcion2026!  y  veterinario@veterinaria.pe / Veterinario2026!
+### Para probar en la nube, cambia @Gateway por la dirección pública del gateway.
+@Gateway = http://localhost:5000/gateway
+@tokenRecepcionista = {{loginRecepcionista.response.body.$.token}}
+@tokenVeterinario = {{loginVeterinario.response.body.$.token}}
+
+############ (a) AUTH: login y registro, públicos ############
+
+### 200 - Login Recepcionista
+# @name loginRecepcionista
+POST {{Gateway}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "recepcion@veterinaria.pe",
+  "clave": "Recepcion2026!"
+}
+
+### 200 - Login Veterinario
+# @name loginVeterinario
+POST {{Gateway}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "veterinario@veterinaria.pe",
+  "clave": "Veterinario2026!"
+}
+
+### 201 - Registro (público; la API asigna el rol Recepcionista)
+POST {{Gateway}}/auth/registro
+Content-Type: application/json
+
+{
+  "correo": "mostrador@veterinaria.pe",
+  "clave": "Mostrador2026!"
+}
+
+### 401 - Login con clave incorrecta (el gateway reenvía y responde la API, con cuerpo JSON)
+POST {{Gateway}}/auth/login
+Content-Type: application/json
+
+{
+  "correo": "recepcion@veterinaria.pe",
+  "clave": "ClaveEquivocada1"
+}
+
+### 200 - Perfil (correo y rol leídos del token)
+GET {{Gateway}}/auth/perfil
+Authorization: Bearer {{tokenRecepcionista}}
+
+############ (b) GET de Veterinaria.Api: públicos en el gateway (la API sigue exigiendo token) ############
+
+### 200 - Listar propietarios
+GET {{Gateway}}/propietarios
+Authorization: Bearer {{tokenVeterinario}}
+
+### 200 - Propietario por id
+GET {{Gateway}}/propietarios/1
+Authorization: Bearer {{tokenVeterinario}}
+
+### 200 - Mascotas de un propietario (la ruta anidada también pasa por {everything})
+GET {{Gateway}}/propietarios/1/mascotas
+Authorization: Bearer {{tokenVeterinario}}
+
+### 200 - Filtro con query string (el gateway la reenvía tal cual)
+GET {{Gateway}}/mascotas?especie=Gato
+Authorization: Bearer {{tokenRecepcionista}}
+
+### 401 - Listar propietarios sin token (el gateway la deja pasar; la API responde 401 con cuerpo JSON)
+GET {{Gateway}}/propietarios
+
+### 404 - Propietario inexistente
+GET {{Gateway}}/propietarios/999
+Authorization: Bearer {{tokenRecepcionista}}
+
+### 404 - Mascota inexistente
+GET {{Gateway}}/mascotas/999
+Authorization: Bearer {{tokenRecepcionista}}
+
+############ (c) Escritura de Veterinaria.Api: el gateway exige token ############
+
+### 401 - Crear propietario sin token (lo corta el gateway: 401 sin cuerpo, no llega a la API)
+POST {{Gateway}}/propietarios
+Content-Type: application/json
+
+{
+  "nombres": "Jorge Luis Paredes Salazar",
+  "dni": "40567891",
+  "telefono": "934567812"
+}
+
+### 401 - Crear propietario con el token alterado (la firma no coincide, lo corta el gateway)
+POST {{Gateway}}/propietarios
+Authorization: Bearer {{tokenVeterinario}}x
+Content-Type: application/json
+
+{
+  "nombres": "Jorge Luis Paredes Salazar",
+  "dni": "40567891",
+  "telefono": "934567812"
+}
+
+### 403 - Crear propietario con el rol Veterinario (el token es válido y pasa el gateway; la API exige el rol)
+POST {{Gateway}}/propietarios
+Authorization: Bearer {{tokenVeterinario}}
+Content-Type: application/json
+
+{
+  "nombres": "Jorge Luis Paredes Salazar",
+  "dni": "40567891",
+  "telefono": "934567812"
+}
+
+### 201 - Crear propietario (Recepcionista)
+# @name nuevoPropietario
+POST {{Gateway}}/propietarios
+Authorization: Bearer {{tokenRecepcionista}}
+Content-Type: application/json
+
+{
+  "nombres": "Jorge Luis Paredes Salazar",
+  "dni": "40567891",
+  "telefono": "934567812"
+}
+
+### 204 - Actualizar propietario (Recepcionista)
+PUT {{Gateway}}/propietarios/{{nuevoPropietario.response.body.$.id}}
+Authorization: Bearer {{tokenRecepcionista}}
+Content-Type: application/json
+
+{
+  "nombres": "Jorge Luis Paredes Salazar",
+  "telefono": "999888777",
+  "correo": "jorge.paredes@correo.pe"
+}
+
+### 204 - Eliminar propietario sin mascotas (Recepcionista)
+DELETE {{Gateway}}/propietarios/{{nuevoPropietario.response.body.$.id}}
+Authorization: Bearer {{tokenRecepcionista}}
+
+### 404 - Eliminar propietario inexistente (Recepcionista)
+DELETE {{Gateway}}/propietarios/999
+Authorization: Bearer {{tokenRecepcionista}}
+
+### 403 - Eliminar mascota con el rol Recepcionista (solo el Veterinario puede)
+DELETE {{Gateway}}/mascotas/1
+Authorization: Bearer {{tokenRecepcionista}}
+
+############ (d) Microservicio 2 (VacunasApi): el gateway exige token ############
+
+### 200 - Listar vacunas
+GET {{Gateway}}/vacunas
+Authorization: Bearer {{tokenRecepcionista}}
+
+### 200 - Vacunas filtradas por especie
+GET {{Gateway}}/vacunas?especie=Gato
+Authorization: Bearer {{tokenVeterinario}}
+
+### 200 - Vacuna por id
+GET {{Gateway}}/vacunas/2
+Authorization: Bearer {{tokenVeterinario}}
+
+### 404 - Vacuna inexistente
+GET {{Gateway}}/vacunas/99
+Authorization: Bearer {{tokenVeterinario}}
+
+### 401 - Vacunas sin token (lo corta el gateway)
+GET {{Gateway}}/vacunas
+
+### 502 - Detén VacunasApi (Ctrl+C en su terminal) y ejecuta esta petición: el gateway no puede reenviarla
+GET {{Gateway}}/vacunas
+Authorization: Bearer {{tokenRecepcionista}}
+
+### 200 - Con VacunasApi detenido, Veterinaria.Api sigue funcionando por el gateway
+GET {{Gateway}}/propietarios
+Authorization: Bearer {{tokenRecepcionista}}
+
+############ Otros ############
+
+### 404 - Ruta que no está en ocelot.json (responde el gateway)
+GET {{Gateway}}/noexiste
+
+### 401 - Llamada DIRECTA a VacunasApi sin token: el servicio también valida el JWT
+GET http://localhost:5170/api/vacunas
+
+### 200 - Llamada DIRECTA a VacunasApi con token
+GET http://localhost:5170/api/vacunas/1
+Authorization: Bearer {{tokenRecepcionista}}
