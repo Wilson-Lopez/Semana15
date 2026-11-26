@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using GatewayApi.Manejadores;
 using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
@@ -42,7 +43,10 @@ builder.Services
         };
     });
 
-builder.Services.AddOcelot(builder.Configuration);
+// Ocelot con un manejador global: si en la nube el microservicio está detenido, responde 502 como en local
+builder.Services
+    .AddOcelot(builder.Configuration)
+    .AddDelegatingHandler<ServicioNoDisponibleHandler>(global: true);
 
 var app = builder.Build();
 

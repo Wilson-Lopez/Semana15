@@ -126,4 +126,6 @@ Siete vacunas en memoria (`Datos/VacunasEnMemoria.cs`) con nombre, especie, enfe
 sqlcmd -S <servidor>.public.databaseasp.net,1433 -U <usuario> -d <base> -N -C -f 65001 -i VeterinariaDB.nube.sql
 ```
 
+**El 502 en la nube:** en tu equipo, si `VacunasApi` está detenido nadie escucha en su puerto, Ocelot no puede conectarse y responde 502 Bad Gateway. En Render, en cambio, aunque el servicio esté suspendido responde el proxy de Render (503 "Service Suspended", con la cabecera `x-render-routing`). Para que el cliente reciba lo mismo en los dos casos, el gateway registra un manejador global de Ocelot (`GatewayApi/Manejadores/ServicioNoDisponibleHandler.cs`, con `AddDelegatingHandler`): si la respuesta trae esa cabecera, no vino del microservicio, y el gateway responde 502. Para probarlo, suspende `vacunas-s15` en Render (*Settings → Suspend Web Service*) y llama a `/gateway/vacunas`; luego reactívalo con *Resume Web Service*.
+
 Para probar en la nube, cambia `@Gateway` en `GatewayApi/GatewayApi.http` por `https://gateway-s15.onrender.com/gateway`. En los planes gratuitos el primer request puede tardar alrededor de un minuto, porque el servicio se reactiva tras estar inactivo.
