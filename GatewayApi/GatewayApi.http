@@ -1,8 +1,12 @@
 ### Pruebas por el API Gateway (el cliente solo conoce el puerto del gateway)
 ### Antes: recarga la base con VeterinariaDB.sql y ejecuta los tres servicios.
 ### Usuarios del script: recepcion@veterinaria.pe / Recepcion2026!  y  veterinario@veterinaria.pe / Veterinario2026!
-### Para probar en la nube, cambia @Gateway por la dirección pública del gateway.
+### En la nube usa las direcciones públicas (comentadas debajo de cada variable).
+### En planes gratuitos la primera petición puede tardar ~1 minuto mientras el servicio despierta.
 @Gateway = http://localhost:5000/gateway
+# @Gateway = https://gateway-s15.onrender.com/gateway
+@Vacunas = http://localhost:5170
+# @Vacunas = https://vacunas-s15.onrender.com
 @tokenRecepcionista = {{loginRecepcionista.response.body.$.token}}
 @tokenVeterinario = {{loginVeterinario.response.body.$.token}}
 
@@ -169,7 +173,8 @@ Authorization: Bearer {{tokenVeterinario}}
 ### 401 - Vacunas sin token (lo corta el gateway)
 GET {{Gateway}}/vacunas
 
-### 502 - Detén VacunasApi (Ctrl+C en su terminal) y ejecuta esta petición: el gateway no puede reenviarla
+### 502 - Detén VacunasApi y ejecuta esta petición: el gateway no puede reenviarla
+### (en tu equipo: Ctrl+C en su terminal; en Render: Settings → Suspend Web Service, y luego Resume)
 GET {{Gateway}}/vacunas
 Authorization: Bearer {{tokenRecepcionista}}
 
@@ -183,8 +188,8 @@ Authorization: Bearer {{tokenRecepcionista}}
 GET {{Gateway}}/noexiste
 
 ### 401 - Llamada DIRECTA a VacunasApi sin token: el servicio también valida el JWT
-GET http://localhost:5170/api/vacunas
+GET {{Vacunas}}/api/vacunas
 
 ### 200 - Llamada DIRECTA a VacunasApi con token
-GET http://localhost:5170/api/vacunas/1
+GET {{Vacunas}}/api/vacunas/1
 Authorization: Bearer {{tokenRecepcionista}}

@@ -95,11 +95,35 @@ Siete vacunas en memoria (`Datos/VacunasEnMemoria.cs`) con nombre, especie, enfe
 
 ## Despliegue en la nube
 
-| Servicio | Proveedor (plan gratuito) |
-|---|---|
-| `GatewayApi` | Render, servicio web Docker (`GatewayApi/Dockerfile`) |
-| `VacunasApi` | Render, servicio web Docker (`VacunasApi/Dockerfile`) |
-| `Veterinaria.Api` | MonsterASP.NET, sitio .NET 10 en IIS |
-| Base de datos | MonsterASP.NET, SQL Server (se ejecuta el mismo `VeterinariaDB.sql`) |
+| Servicio | Dirección pública | Proveedor (plan gratuito) |
+|---|---|---|
+| `GatewayApi` | https://gateway-s15.onrender.com/gateway | Render, servicio web Docker (`GatewayApi/Dockerfile`), región Frankfurt |
+| `VacunasApi` | https://vacunas-s15.onrender.com/api/vacunas | Render, servicio web Docker (`VacunasApi/Dockerfile`), región Frankfurt |
+| `Veterinaria.Api` | http://veterinaria-s15.runasp.net | MonsterASP.NET, sitio .NET 10 en IIS, centro de datos de Alemania |
+| Base de datos | (solo accesible para la API y por acceso remoto) | MonsterASP.NET, SQL Server 2025 |
 
-La clave JWT y la cadena de conexión no están en el repositorio: se configuran como variables de entorno en cada proveedor (`Jwt__Clave` y `ConnectionStrings__VeterinariaDB`). En los planes gratuitos el primer request puede tardar alrededor de un minuto, porque el servicio se reactiva tras estar inactivo.
+**Por qué estos proveedores:** MonsterASP.NET ofrece gratis un sitio ASP.NET Core y una base **SQL Server**, así que `Veterinaria.Api` y su script se publican sin cambiar el proveedor de EF Core. Su plan gratuito solo permite un sitio, por eso el gateway y `VacunasApi` van en Render, que despliega contenedores Docker desde GitHub con HTTPS incluido. Todos están en Europa (Frankfurt y Alemania) para que el gateway y la API queden cerca.
+
+**Rutas en la nube (`ocelot.Production.json`):**
+
+| Upstream (cliente → gateway) | Método | Downstream (gateway → servicio) | Token en el gateway |
+|---|---|---|---|
+| `/gateway/auth/{everything}` | POST | `http://veterinaria-s15.runasp.net:80` `/api/auth/{everything}` | No |
+| `/gateway/auth/perfil` | GET | `http://veterinaria-s15.runasp.net:80` `/api/auth/perfil` | No |
+| `/gateway/propietarios{everything}` | GET | `http://veterinaria-s15.runasp.net:80` `/api/propietarios{everything}` | No |
+| `/gateway/propietarios{everything}` | POST, PUT, DELETE | `http://veterinaria-s15.runasp.net:80` `/api/propietarios{everything}` | Sí |
+| `/gateway/mascotas{everything}` | GET | `http://veterinaria-s15.runasp.net:80` `/api/mascotas{everything}` | No |
+| `/gateway/mascotas{everything}` | POST, PUT, DELETE | `http://veterinaria-s15.runasp.net:80` `/api/mascotas{everything}` | Sí |
+| `/gateway/vacunas{everything}` | GET | `https://vacunas-s15.onrender.com:443` `/api/vacunas{everything}` | Sí |
+
+`BaseUrl` = `https://gateway-s15.onrender.com`. El subdominio gratuito `runasp.net` no incluye HTTPS (MonsterASP lo activa a pedido por soporte), por eso el tramo gateway → `Veterinaria.Api` usa `http` y el puerto 80; el tramo hacia `VacunasApi` usa `https` y el 443.
+
+**Secretos:** la clave JWT y la cadena de conexión no están en el repositorio. En MonsterASP se configuran en *Scripting → Environment variables* (`ConnectionStrings__VeterinariaDB`, `Jwt__Clave` y `ASPNETCORE_ENVIRONMENT=Production`) y en Render en *Environment Variables* de cada servicio (`Jwt__Clave`). La clave JWT de la nube es distinta de la local y es la misma en los tres servicios.
+
+**Base de datos en la nube:** se ejecuta por acceso remoto una copia de `VeterinariaDB.sql` sin el bloque `IF DB_ID(...) CREATE DATABASE` ni `USE VeterinariaDB` (las primeras líneas), porque el proveedor ya crea la base con su propio nombre y no permite crear otras. El resto del script (tablas, datos y usuarios) es el mismo. La base se indica con `-d`:
+
+```
+sqlcmd -S <servidor>.public.databaseasp.net,1433 -U <usuario> -d <base> -N -C -f 65001 -i VeterinariaDB.nube.sql
+```
+
+Para probar en la nube, cambia `@Gateway` en `GatewayApi/GatewayApi.http` por `https://gateway-s15.onrender.com/gateway`. En los planes gratuitos el primer request puede tardar alrededor de un minuto, porque el servicio se reactiva tras estar inactivo.

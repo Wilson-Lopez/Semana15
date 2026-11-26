@@ -49,11 +49,11 @@
       "UpstreamHttpMethod": [ "GET" ],
       "DownstreamPathTemplate": "/api/vacunas{everything}",
       "DownstreamScheme": "https",
-      "DownstreamHostAndPorts": [ { "Host": "PENDIENTE-VACUNAS.onrender.com", "Port": 443 } ],
+      "DownstreamHostAndPorts": [ { "Host": "vacunas-s15.onrender.com", "Port": 443 } ],
       "AuthenticationOptions": { "AuthenticationProviderKeys": [ "Bearer" ] }
     }
   ],
   "GlobalConfiguration": {
-    "BaseUrl": "https://PENDIENTE-GATEWAY.onrender.com"
+    "BaseUrl": "https://gateway-s15.onrender.com"
   }
 }
